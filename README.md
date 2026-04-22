@@ -91,11 +91,8 @@ Results: RMSE = 6.692, MAE = 4.570, R² = 0.9419
  
 | Layer | Tools |
 |---|---|
-| ML models | LightGBM, XGBoost, CatBoost, Random Forest |
-| Ensemble | Stacking (Linear Regression meta-learner) |
+| ML models | LightGBM, XGBoost-StartA-2x |
 | Backend | FastAPI |
-| Server | Nginx reverse proxy |
-| Deployment | Docker → Cloud VM |
 | Weather | Weather API (live conditions) |
 | Frontend | Web app (auto-refresh every 30s) |
  
