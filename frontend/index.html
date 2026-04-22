@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RotaZeka — Smart Transit</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ── HEADER ─────────────────────────────────────────────── -->
+  <header>
+    <div class="wrap header-inner">
+      <div class="logo">
+        <div class="logo-icon">🚌</div>
+        <div class="logo-text">Rota<span>Zeka</span></div>
+      </div>
+      <div class="live-badge">
+        <div class="live-dot"></div>
+        LIVE PREDICTION
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+
+    <!-- ── HERO ───────────────────────────────────────────────── -->
+    <div class="hero">
+      <div class="hero-tag">Sivas Public Transit · Anadolu Hackathon 2026</div>
+      <h1>When will the bus <em>actually</em><br>arrive?</h1>
+      <p>Real-time predictions powered by traffic, weather, and live transit data.</p>
+    </div>
+
+    <!-- ── SEARCH ENGINE ─────────────────────────────────────── -->
+<div style="max-width:700px;margin:0 auto 20px;position:relative;z-index:50;">
+  <label style="display:block;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">🔍 Search Bus Stops</label>
+  <div style="display:flex;gap:8px;">
+    <div style="flex:1;position:relative;">
+      <input type="text" id="stopSearch"
+        placeholder="Type stop ID or type"
+        oninput="searchStops(this.value)"
+        autocomplete="off"
+        style="width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);padding:12px 14px 12px 36px;border-radius:8px;font-family:'Syne',sans-serif;font-size:14px;outline:none;">
+      <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:16px;pointer-events:none;">⌕</span>
+      <div id="searchDrop"
+        style="display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;background:#131920;border:1px solid var(--teal);border-radius:10px;z-index:999;max-height:260px;overflow-y:auto;box-shadow:0 8px 32px #00000080;">
+      </div>
+    </div>
+  </div>
+</div>
+
+    <!-- ── SELECTORS ──────────────────────────────────────────── -->
+    <div class="selector-row">
+      <div class="field-wrap">
+        <label>Select Line</label>
+        <select id="lineSelect" onchange="loadStops()">
+          <option value="">Loading...</option>
+        </select>
+      </div>
+      <div class="field-wrap">
+        <label>Select Stop</label>
+        <select id="stopSelect">
+          <option value="">Select a line first</option>
+        </select>
+      </div>
+      <button class="predict-btn" onclick="runPrediction()" id="predictBtn">
+        PREDICT →
+      </button>
+    </div>
+
+    <!-- ── CONDITION PILLS ────────────────────────────────────── -->
+    <div class="conditions">
+      <div class="pill-group">
+        <span class="pill-label">WEATHER</span>
+        <div class="pill active" data-group="weather" data-val="clear"  onclick="selectPill(this)">☀️ Clear</div>
+        <div class="pill"        data-group="weather" data-val="cloudy" onclick="selectPill(this)">☁️ Cloudy</div>
+        <div class="pill"        data-group="weather" data-val="rain"   onclick="selectPill(this)">🌧️ Rain</div>
+        <div class="pill"        data-group="weather" data-val="snow"   onclick="selectPill(this)">❄️ Snow</div>
+        <div class="pill"        data-group="weather" data-val="fog"    onclick="selectPill(this)">🌫️ Fog</div>
+        <div class="pill"        data-group="weather" data-val="wind"   onclick="selectPill(this)">💨 Wind</div>
+      </div>
+        <button onclick="loadRealTimeWeather()" id="weatherBtn"
+        style="margin-top:8px; padding:8px 18px; background:transparent;
+               border:1px solid var(--teal); color:var(--teal);
+               border-radius:6px; cursor:pointer; font-size:12px;">
+          ⟳ Get Current Weather
+        </button>
+<span id="weatherInfo" style="font-size:11px; color:#888; margin-left:10px;"></span>
+      <div class="pill-group">
+        <span class="pill-label">TRAFFIC</span>
+        <div class="pill active" data-group="traffic" data-val="low"       onclick="selectPill(this)">Low</div>
+        <div class="pill"        data-group="traffic" data-val="moderate"  onclick="selectPill(this)">Moderate</div>
+        <div class="pill"        data-group="traffic" data-val="high"      onclick="selectPill(this)">High</div>
+        <div class="pill"        data-group="traffic" data-val="congested" onclick="selectPill(this)">Congested</div>
+      </div>
+    </div>
+
+    <!-- ── RESULTS ────────────────────────────────────────────── -->
+    <div class="results" id="results">
+
+      <!-- Delay Card -->
+      <div class="card" id="delayCard">
+        <div class="card-tag">Arrival Prediction</div>
+        <div class="delay-number" id="delayNum" style="color: var(--teal)">--</div>
+        <div class="delay-unit">minutes delay</div>
+        <div class="arrival-time" id="arrivalTime">--:--</div>
+        <div id="statusBadge"></div>
+        <div class="card-meta">
+          Confidence: <span id="confidence" class="meta-val">--</span>
+          &nbsp;·&nbsp;
+          Model: <span id="modelVer" class="meta-muted">--</span>
+        </div>
+      </div>
+
+      <!-- Crowd Card -->
+      <div class="card" id="crowdCard">
+        <div class="card-tag">Stop Crowding</div>
+        <div class="crowd-number" id="crowdNum">--</div>
+        <div class="crowd-unit">people waiting</div>
+
+        <div class="crowd-bar-wrap">
+          <div class="crowd-bar-labels">
+            <span>EMPTY</span>
+            <span>LIGHT</span>
+            <span>MODERATE</span>
+            <span>BUSY</span>
+            <span>FULL</span>
+          </div>
+          <div class="crowd-bar-bg">
+            <div class="crowd-bar-fill" id="crowdBar"></div>
+          </div>
+        </div>
+
+        <div class="crowd-segments">
+          <div class="segment" id="seg0"></div>
+          <div class="segment" id="seg1"></div>
+          <div class="segment" id="seg2"></div>
+          <div class="segment" id="seg3"></div>
+          <div class="segment" id="seg4"></div>
+        </div>
+
+        <div id="crowdBadge" style="margin-top: 16px;"></div>
+      </div>
+
+    </div>
+
+      <!-- ── STOP MAP ───────────────────────────────────────────── -->
+<div id="stopMap" style="display:none; margin-bottom:24px;">
+  <div style="font-family:'Space Mono',monospace;font-size:11px;
+              letter-spacing:3px;color:var(--muted);text-transform:uppercase;
+              margin-bottom:16px;display:flex;align-items:center;gap:12px;">
+    ROUTE MAP
+    <span style="flex:1;height:1px;background:var(--border);display:block;"></span>
+    <span id="mapStopLabel" style="color:var(--teal);letter-spacing:1px;"></span>
+  </div>
+
+  <div style="background:var(--card);border:1px solid var(--border);
+              border-radius:16px;overflow:hidden;position:relative;">
+
+    <!-- Legend -->
+    <div style="position:absolute;top:12px;right:12px;z-index:1000;
+                background:#080c10dd;border:1px solid var(--border);
+                border-radius:8px;padding:10px 14px;
+                font-family:'Space Mono',monospace;font-size:10px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <div style="width:10px;height:10px;border-radius:50%;background:#4a6070;border:2px solid #888;"></div>
+        <span style="color:var(--muted);">Previous stop</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:10px;height:10px;border-radius:50%;background:#00d4aa;border:2px solid #fff;"></div>
+        <span style="color:var(--teal);">Current stop</span>
+      </div>
+    </div>
+
+    <!-- Map container -->
+    <div id="leafletMap" style="height:320px;width:100%;"></div>
+
+    <!-- Bottom info bar -->
+    <div style="padding:14px 20px;display:flex;gap:24px;flex-wrap:wrap;
+                border-top:1px solid var(--border);">
+      <div>
+        <div style="font-family:'Space Mono',monospace;font-size:9px;
+                    letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;
+                    margin-bottom:4px;">From</div>
+        <div style="font-family:'Space Mono',monospace;font-size:12px;
+                    color:var(--muted);" id="mapFromStop">--</div>
+      </div>
+      <div style="color:var(--muted);align-self:center;font-size:18px;">→</div>
+      <div>
+        <div style="font-family:'Space Mono',monospace;font-size:9px;
+                    letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;
+                    margin-bottom:4px;">To</div>
+        <div style="font-family:'Space Mono',monospace;font-size:12px;
+                    color:var(--teal);" id="mapToStop">--</div>
+      </div>
+      <div style="margin-left:auto;">
+        <div style="font-family:'Space Mono',monospace;font-size:9px;
+                    letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;
+                    margin-bottom:4px;">Distance</div>
+        <div style="font-family:'Space Mono',monospace;font-size:12px;
+                    color:var(--text);" id="mapDistance">--</div>
+      </div>
+      <div>
+        <div style="font-family:'Space Mono',monospace;font-size:9px;
+                    letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;
+                    margin-bottom:4px;">Stop Type</div>
+        <div style="font-family:'Space Mono',monospace;font-size:12px;
+                    color:var(--text);" id="mapStopType">--</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+      <!-- ── ANALYTICS PANEL ───────────────────────────────────── -->
+<div id="analyticsPanel"
+  style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;margin-bottom:24px;display:none;">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+    <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;display:flex;align-items:center;gap:8px;">
+      <span style="width:6px;height:6px;border-radius:50%;background:#ffaa00;display:inline-block;"></span>
+      Predictive Analysis
+    </div>
+    <div style="display:flex;gap:4px;" id="apTabs">
+      <button class="ap-tab active" onclick="showPane('hourly',this)" style="font-family:'Space Mono',monospace;font-size:10px;padding:6px 14px;border-radius:20px;cursor:pointer;border:1px solid #ffaa00;background:#ffaa0011;color:#ffaa00;letter-spacing:.5px;">HOURLY</button>
+      <button class="ap-tab" onclick="showPane('route',this)"  style="font-family:'Space Mono',monospace;font-size:10px;padding:6px 14px;border-radius:20px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);letter-spacing:.5px;">ROUTE</button>
+      <button class="ap-tab" onclick="showPane('risk',this)"   style="font-family:'Space Mono',monospace;font-size:10px;padding:6px 14px;border-radius:20px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);letter-spacing:.5px;">RISK</button>
+    </div>
+  </div>
+
+  <!-- HOURLY PANE -->
+  <div id="pane-hourly">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;" id="hourlyCards">
+      <div style="background:#131920;border:1px solid var(--border);border-radius:12px;padding:14px;">
+        <div style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Peak Delay</div>
+        <div style="font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:var(--teal);" id="a-peak">--</div>
+        <div style="font-size:11px;color:var(--muted);" id="a-peak-h">at rush hour</div>
+      </div>
+      <div style="background:#131920;border:1px solid var(--border);border-radius:12px;padding:14px;">
+        <div style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Daily Average</div>
+        <div style="font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:var(--teal);" id="a-avg">--</div>
+        <div style="font-size:11px;color:var(--muted);">minutes</div>
+      </div>
+      <div style="background:#131920;border:1px solid var(--border);border-radius:12px;padding:14px;">
+        <div style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Best Departure</div>
+        <div style="font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:var(--teal);" id="a-best">--</div>
+        <div style="font-size:11px;color:var(--muted);" id="a-best-sub">lowest delay</div>
+      </div>
+      <div style="background:#131920;border:1px solid var(--border);border-radius:12px;padding:14px;">
+        <div style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">vs Average</div>
+        <div style="font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:var(--teal);" id="a-trend">--</div>
+        <div style="font-size:11px;color:var(--muted);" id="a-trend-sub"></div>
+      </div>
+    </div>
+    <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">Predicted delay by hour — amber outline = now</div>
+    <div id="hourlyChart" style="display:flex;align-items:flex-end;gap:3px;height:90px;"></div>
+  </div>
+
+  <!-- ROUTE PANE -->
+  <div id="pane-route" style="display:none;">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+      <div style="background:#131920;border:1px solid var(--border);border-radius:12px;padding:14px;">
+        <div style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Total Route Delay</div>
+        <div style="font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:var(--teal);" id="r-total">--</div>
+        <div style="font-size:11px;color:var(--muted);">cumulative minutes</div>
+      </div>
+      <div style="background:#131920;border:1px solid var(--border);border-radius:12px;padding:14px;">
+        <div style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Worst Stop</div>
+        <div style="font-family:'Space Mono',monospace;font-size:14px;font-weight:700;color:var(--teal);" id="r-worst">--</div>
+        <div style="font-size:11px;color:var(--muted);" id="r-worst-sub"></div>
+      </div>
+      <div style="background:#131920;border:1px solid var(--border);border-radius:12px;padding:14px;">
+        <div style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">On-Time Probability</div>
+        <div style="font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:var(--teal);" id="r-ontime">--</div>
+        <div style="font-size:11px;color:var(--muted);">for this stop</div>
+      </div>
+    </div>
+    <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">Stop-by-stop delay forecast</div>
+    <div id="routeTimeline" style="display:flex;flex-direction:column;max-height:260px;overflow-y:auto;"></div>
+  </div>
+
+  <!-- RISK PANE -->
+  <div id="pane-risk" style="display:none;">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+      <div style="background:#131920;border:1px solid var(--border);border-radius:12px;padding:14px;">
+        <div style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Weather Impact</div>
+        <div style="font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:var(--teal);" id="risk-w">--</div>
+        <div style="font-size:11px;color:var(--muted);" id="risk-w-sub"></div>
+      </div>
+      <div style="background:#131920;border:1px solid var(--border);border-radius:12px;padding:14px;">
+        <div style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Traffic Impact</div>
+        <div style="font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:var(--teal);" id="risk-t">--</div>
+        <div style="font-size:11px;color:var(--muted);" id="risk-t-sub"></div>
+      </div>
+      <div style="background:#131920;border:1px solid var(--border);border-radius:12px;padding:14px;">
+        <div style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Stop Type Impact</div>
+        <div style="font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:var(--teal);" id="risk-s">--</div>
+        <div style="font-size:11px;color:var(--muted);" id="risk-s-sub"></div>
+      </div>
+      <div style="background:#131920;border:1px solid var(--border);border-radius:12px;padding:14px;">
+        <div style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Overall Risk</div>
+        <div style="font-family:'Space Mono',monospace;font-size:20px;font-weight:700;" id="risk-score">--</div>
+        <div style="font-size:11px;color:var(--muted);" id="risk-score-sub"></div>
+      </div>
+    </div>
+    <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">Risk factor breakdown</div>
+    <div id="riskBars"></div>
+  </div>
+
+</div>
+
+
+    <!-- ── STATS ROW ──────────────────────────────────────────── -->
+    <div class="stats-row" id="statsRow">
+      <div class="stat-card">
+        <div class="stat-val" id="statDelay">--</div>
+        <div class="stat-lbl">LAST DELAY</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="statCrowd">--</div>
+        <div class="stat-lbl">PEOPLE WAITING</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="statLine">--</div>
+        <div class="stat-lbl">ACTIVE LINES</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val">98%</div>
+        <div class="stat-lbl">MODEL ACCURACY</div>
+      </div>
+    </div>
+
+    <!-- ── STOPS GRID ─────────────────────────────────────────── -->
+    <div class="section-title">All Stops</div>
+    <div class="stops-grid" id="stopsGrid"></div>
+
+  </main>
+
+  <!-- ── REFRESH INFO ───────────────────────────────────────────── -->
+  <div class="refresh-info" id="refreshInfo"></div>
+
+  <!-- ── FOOTER ─────────────────────────────────────────────────── -->
+  <footer>
+    <div class="wrap">
+      <span>RotaZeka</span> · Anadolu Hackathon 2026 · Sivas, Turkey
+    </div>
+  </footer>
+
+  <!-- ── TOAST ──────────────────────────────────────────────────── -->
+  <div class="toast" id="toast"></div>
+
+  <!-- ── JAVASCRIPT ─────────────────────────────────────────────── -->
+  <script src="/app.js?v=5"></script>
+</body>
+</body>
+</html>
