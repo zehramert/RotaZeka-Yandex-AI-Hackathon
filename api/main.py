@@ -19,7 +19,7 @@ from predictor import predictor
 
 import requests as http_requests
 
-OPENWEATHER_API_KEY = "7a82757bd7c5c0720a23baa5b7397b27"
+OPENWEATHER_API_KEY = "your_api_key"
 
 WEATHER_MAP = {
     "Clear":        "clear",
