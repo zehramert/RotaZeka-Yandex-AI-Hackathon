@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pathlib import Path
 import uvicorn
+import os
 
 # Import our schemas and predictor
 import sys
@@ -19,7 +20,7 @@ from predictor import predictor
 
 import requests as http_requests
 
-OPENWEATHER_API_KEY = "your_api_key"
+OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
 WEATHER_MAP = {
     "Clear":        "clear",
