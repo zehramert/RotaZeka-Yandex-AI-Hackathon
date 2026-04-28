@@ -6,7 +6,7 @@
  
 RotaZeka predicts bus arrival delays and stop crowding levels in real time, using traffic, weather, and historical transit data — so commuters can plan their time instead of just waiting.
  
-> 🏆 **top 3 out of 35 teams** — Yandex & Sivas University of Science and Technology Anatolian Hackathon 2026  
+> 🏆 **1st Place** — Yandex & Sivas University of Science and Technology Anatolian Hackathon 2026  
 > Evaluated by Machine Learning experts at Yandex and Professors at SUST.
  
 ---
